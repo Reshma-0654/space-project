@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven3'  // Use the exact name configured in Jenkins
+        maven 'maven3'
     }
 
     environment {
-        // Docker / Deployment Variables
         IMAGE_NAME = "reshma-nginx-app"
         CONTAINER_NAME = "reshma-nginx-container"
         PORT = "5000"
@@ -14,10 +13,6 @@ pipeline {
         DOCKER_REGISTRY = "docker.io"
         DOCKER_REPO = "reshma6540"
         IMAGE_TAG = "latest"
-
-        // Maven (optional, already handled by tools)
-        MAVEN_HOME = '/usr/share/maven'
-        PATH = "${env.MAVEN_HOME}/bin:${env.PATH}"
     }
 
     stages {
@@ -26,7 +21,7 @@ pipeline {
             steps {
                 sh "pwd"
                 sh "ls -l"
-                sh "ls -l project"
+                sh "ls -l project || true"
             }
         }
 
@@ -38,24 +33,19 @@ pipeline {
             }
         }
 
-       stage('SonarQube Analysis') {
-    steps {
-        dir('project') {
-            withSonarQubeEnv('sq') {
-                sh """
-                mvn sonar:sonar \
-                    -Dsonar.projectKey=reshma-app \
-                    -Dsonar.host.url=http://16.176.21.182:9000 \
-                    -Dsonar.login=${env.SONAR_AUTH_TOKEN}
-                """
-            }
-        }
-    }
-}
-        stage('Upload to Nexus') {
+        stage('SonarQube Analysis') {
             steps {
                 dir('project') {
-                    sh 'mvn deploy -DskipTests'
+                    withSonarQubeEnv('sq') {
+                        withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                            sh '''
+                            mvn sonar:sonar \
+                              -Dsonar.projectKey=reshma-app \
+                              -Dsonar.host.url=http://16.176.21.182:9000 \
+                              -Dsonar.login=$SONAR_TOKEN
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -94,24 +84,15 @@ pipeline {
                 sh '''
                 export KUBECONFIG=/var/lib/jenkins/.kube/config
 
-                if [ ! -f deployment.yml ]; then
+                if [ ! -f project/deployment.yml ]; then
                     echo "Error: deployment.yml not found!"
                     exit 1
                 fi
 
-                kubectl apply -f deployment.yml
+                kubectl apply -f project/deployment.yml
                 '''
             }
         }
-
-        stage('Run Docker Container') {
-            steps {
-                sh "docker stop $CONTAINER_NAME || true"
-                sh "docker rm $CONTAINER_NAME || true"
-                sh "docker run -d -p $PORT:$CONTAINER_PORT --name $CONTAINER_NAME $DOCKER_REGISTRY/$DOCKER_REPO/$IMAGE_NAME:$IMAGE_TAG"
-            }
-        }
-
     }
 
     post {
