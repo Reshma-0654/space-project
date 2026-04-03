@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: s123-container
-        image: vasudhara12/vasundhara-nginx-app:latest
+        image: reshma6540/myimage:latest
         ports:
         - containerPort: 80
 
