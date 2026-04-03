@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: spaceproject-deployment
+  name: spaceProject-deployment
 spec:
   replicas: 2
   selector:
