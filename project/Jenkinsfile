@@ -46,7 +46,7 @@ pipeline {
                 sh """
                 mvn sonar:sonar \
                     -Dsonar.projectKey=reshma-app \
-                    -Dsonar.host.url=http://13.232.255.202:9000 \
+                    -Dsonar.host.url=http://3.25.153.255:9000 \
                     -Dsonar.login=${env.SONAR_AUTH_TOKEN}
                 """
             }
