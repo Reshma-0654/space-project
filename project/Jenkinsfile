@@ -1,5 +1,10 @@
+
 pipeline {
     agent any
+
+    tools {
+        maven 'maven3'  // Use the exact name configured in Jenkins
+    }
 
     environment {
         // Docker / Deployment Variables
@@ -11,19 +16,12 @@ pipeline {
         DOCKER_REPO = "reshma6540"
         IMAGE_TAG = "latest"
 
-        // Maven
+        // Maven (optional, already handled by tools)
         MAVEN_HOME = '/usr/share/maven'
         PATH = "${env.MAVEN_HOME}/bin:${env.PATH}"
     }
 
     stages {
-
-        // ✅ NEW: Checkout from GitHub
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Reshma-0654/space-project.git'
-            }
-        }
 
         stage('Debug Workspace') {
             steps {
@@ -33,71 +31,28 @@ pipeline {
             }
         }
 
-        stage('Check & Install Maven') {
-            steps {
-                sh '''
-                if ! command -v mvn &> /dev/null
-                then
-                    echo "Maven not found. Installing..."
-                    sudo apt update
-                    sudo apt install -y maven
-                else
-                    echo "Maven is already installed."
-                fi
-                mvn -version
-                '''
-            }
-        }
-
-        // ✅ Maven Lifecycle Stages
-
-        stage('Validate') {
+        stage('Build with Maven') {
             steps {
                 dir('project') {
-                    sh 'mvn validate'
+                    sh 'mvn clean package -DskipTests'
                 }
             }
         }
 
-        stage('Compile') {
-            steps {
-                dir('project') {
-                    sh 'mvn compile'
-                }
+       stage('SonarQube Analysis') {
+    steps {
+        dir('project') {
+            withSonarQubeEnv('sq') {
+                sh """
+                mvn sonar:sonar \
+                    -Dsonar.projectKey=reshma-app \
+                    -Dsonar.host.url=http://13.232.255.202:9000 \
+                    -Dsonar.login=${env.SONAR_AUTH_TOKEN}
+                """
             }
         }
-
-        stage('Test') {
-            steps {
-                dir('project') {
-                    sh 'mvn test'
-                }
-            }
-        }
-
-        stage('Package') {
-            steps {
-                dir('project') {
-                    sh 'mvn package -DskipTests'
-                }
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                dir('project') {
-                    withSonarQubeEnv('sq') {
-                        sh '''
-                        mvn sonar:sonar \
-                        -Dsonar.projectKey=reshma-app \
-                        -Dsonar.host.url=http://<SONAR-IP>:9000 \
-                        -Dsonar.login=<SONAR-TOKEN>
-                        '''
-                    }
-                }
-            }
-        }
-
+    }
+}
         stage('Upload to Nexus') {
             steps {
                 dir('project') {
@@ -157,6 +112,7 @@ pipeline {
                 sh "docker run -d -p $PORT:$CONTAINER_PORT --name $CONTAINER_NAME $DOCKER_REGISTRY/$DOCKER_REPO/$IMAGE_NAME:$IMAGE_TAG"
             }
         }
+
     }
 
     post {
