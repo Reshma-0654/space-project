@@ -12,11 +12,18 @@ pipeline {
         IMAGE_TAG = "latest"
 
         // Maven
-        MAVEN_HOME = '/usr/share/maven' // default path
+        MAVEN_HOME = '/usr/share/maven'
         PATH = "${env.MAVEN_HOME}/bin:${env.PATH}"
     }
 
     stages {
+
+        // ✅ NEW: Checkout from GitHub
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Reshma-0654/space-project.git'
+            }
+        }
 
         stage('Debug Workspace') {
             steps {
@@ -42,10 +49,36 @@ pipeline {
             }
         }
 
-        stage('Build with Maven') {
+        // ✅ Maven Lifecycle Stages
+
+        stage('Validate') {
             steps {
                 dir('project') {
-                    sh 'mvn clean package -DskipTests'
+                    sh 'mvn validate'
+                }
+            }
+        }
+
+        stage('Compile') {
+            steps {
+                dir('project') {
+                    sh 'mvn compile'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('project') {
+                    sh 'mvn test'
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                dir('project') {
+                    sh 'mvn package -DskipTests'
                 }
             }
         }
@@ -53,7 +86,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 dir('project') {
-                    withSonarQubeEnv('sq') {   // Jenkins Sonar config name
+                    withSonarQubeEnv('sq') {
                         sh '''
                         mvn sonar:sonar \
                         -Dsonar.projectKey=reshma-app \
@@ -124,7 +157,6 @@ pipeline {
                 sh "docker run -d -p $PORT:$CONTAINER_PORT --name $CONTAINER_NAME $DOCKER_REGISTRY/$DOCKER_REPO/$IMAGE_NAME:$IMAGE_TAG"
             }
         }
-
     }
 
     post {
